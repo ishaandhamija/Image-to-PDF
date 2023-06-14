@@ -1,68 +1,44 @@
-const express = require('express');
-const bodyParser= require('body-parser');
-const fs = require('fs');
+const express = require("express");
+const bodyParser = require("body-parser");
+const fs = require("fs");
+const path = require("path");
+const PDFDocument = require("pdfkit");
 
 const app = express();
 
-app.use(bodyParser.json({limit:'50mb'}));
-app.use(bodyParser.urlencoded({limit:'50mb',extended : false}));
+const PORT = 5211;
 
-app.post('/makePDF', function (req, res) {
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: false }));
 
-    var PDFDocument, doc;
-    PDFDocument = require('pdfkit');
-    doc = new PDFDocument;
+app.get("/", function (req, res) {
+  res.send("Welcome to the server");
+});
 
-    var myObj = req.body.jsonObject
+app.post("/makePDF", function (req, res) {
+  const imagePath = req.body.imagePath; // Assuming the request body includes the "imagePath" field with the image path string
 
-    var flag = 0
-    var currImageString = ''
+  const doc = new PDFDocument();
+  const imagePaths = imagePath.split(","); // Split the image path string by commas to get individual image paths
 
-    for (var i in myObj){
-        
-        if (myObj[i] == ','){
-            var bitmap = new Buffer(currImageString, 'base64');
-            fs.writeFileSync("images/photo.jpg", bitmap);
-
-            doc.image('images/photo.jpg', 0, 0, {width: 625, height: 900});
-            doc.addPage()
-
-            fs.unlink('./images/photo.jpg',function(err){
-                if(err) return console.log(err);
-            });
-
-            currImageString = ''
-        }
-
-        else if (myObj[i] == '}'){
-            flag = 0
-            var bitmap = new Buffer(currImageString, 'base64');
-            fs.writeFileSync("images/photo.jpg", bitmap);
-
-            doc.image('images/photo.jpg', 0, 0, {width: 625, height: 900});
-
-            fs.unlink('./images/photo.jpg',function(err){
-                if(err) return console.log(err);
-            });
-        }
-
-        else if (flag == 1){
-            currImageString += myObj[i]
-        }
-
-        else if (myObj[i] == '{'){
-            flag = 1
-        }
-
+  imagePaths.forEach((imagePath) => {
+    const imageFullPath = path.join(__dirname, imagePath); // Get the full path of the image file
+    if (fs.existsSync(imageFullPath)) {
+      // Check if the image file exists
+      doc.image(imageFullPath, 0, 0, { width: 625, height: 900 });
+      doc.addPage();
+    } else {
+      console.log(`Image file not found: ${imageFullPath}`);
     }
+  });
 
-    doc.pipe(fs.createWriteStream('output.pdf'));
-    doc.end();
+  const outputFilePath = path.join(__dirname, "output.pdf");
+  doc.pipe(fs.createWriteStream(outputFilePath));
+  doc.end();
 
-    res.send('hogya bhai')
+  res.send("PDF generation complete!");
+});
 
-})
-
-app.listen(5211,function(){
-    console.log("Server started on http://localhost:5211");
-})
+app.listen(PORT, function () {
+  console.log(`Server started on port http://localhost:${PORT}`);
+});
